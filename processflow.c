@@ -20,12 +20,12 @@ void register_task(char *name, char *program, char *args[])
 
     int i = 0;
 
-    while (args[i] != NULL && i < MAX_ARGS - 1) {
-        tasks[task_count].args[i] = args[i];
+    while (args[i] != NULL && i < MAX_ARGS) {
+        strcpy(tasks[task_count].args[i], args[i]);
         i++;
     }
 
-    tasks[task_count].args[i] = NULL;
+    tasks[task_count].arg_count = i;
 
     task_count++;
 }
