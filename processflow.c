@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "processflow.h"
+#include <stdlib.h>
 
 Task tasks[MAX_TASKS];
 int task_count = 0;   //initialize the task count to 0
@@ -28,4 +29,28 @@ void register_task(char *name, char *program, char *args[])
     tasks[task_count].arg_count = i;
 
     task_count++;
+}
+
+
+
+
+void process_command(char *line)
+{
+    char *command = strtok(line, " \n");  // separa o comando em 3 partes
+
+    if (command == NULL) {
+        return;
+    }
+
+    if (strcmp(command, "exit") == 0) {
+        exit(0);
+    }
+
+    if (strcmp(command, "task") == 0) {
+        // vamos tratar o cadastro aqui
+    }
+
+    if (strcmp(command, "run") == 0) {
+        // depois chamaremos execute_task()
+    }
 }

@@ -4,20 +4,26 @@
 
 
 
-int main(int argc, char *argv[]) //Qtd de argumentos e vetor de argumentos -> comandos terminal
+int main(int argc, char *argv[])
 {
+    char line[256];
+
     if (argc > 2) {
-        printf("Erro: numero incorreto de argumentos.\n");
+        fprintf(stderr, "Erro: numero incorreto de argumentos.\n");
         return 1;
     }
 
-    if (argc == 1) {   //INTERATIVO
-        printf("Modo interativo\n");
-        printf("processflow> ");
-    }
+    if (argc == 1) {
+        while (1) {
+            printf("processflow> ");
 
-    if (argc == 2) { //WORKFLOW
-        printf("Modo workflow: %s\n", argv[1]);
+            if (fgets(line, sizeof(line), stdin) == NULL) { // ler a linha de comando
+                break;
+            }
+
+            
+            process_command(line); //chamada
+        }
     }
 
     return 0;

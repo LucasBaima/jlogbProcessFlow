@@ -20,4 +20,6 @@ extern int task_count;
 
 void register_task(char *name, char *program, char *args[]);
 
+void process_command(char *line);
+
 #endif
