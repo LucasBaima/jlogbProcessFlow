@@ -20,6 +20,14 @@ extern int task_count;
 
 void register_task(char *name, char *program, char *args[]);
 
+int execute_task(Task *task);
+
 void process_command(char *line);
+
+Task *find_task(char *name);
+
+void run_sequential(char *task_names[], int count);
+
+void run_parallel(char *task_names[], int count);
 
 #endif
