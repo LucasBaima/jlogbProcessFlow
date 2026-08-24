@@ -69,7 +69,7 @@ int execute_task(Task *task)
 
 void process_command(char *line)
 {
-    char *command = strtok(line, " \n");  // separa o comando em 3 partes
+    char *command = strtok(line, " \n");  // separa o comando em partes
 
     if (command == NULL) {
         return;
@@ -79,18 +79,16 @@ void process_command(char *line)
         exit(0);
     }
 
-
-
     if (strcmp(command, "task") == 0) {
         char *name = strtok(NULL, " \n");
         char *program = strtok(NULL, " \n");
 
-         if (name == NULL || program == NULL) {
+        if (name == NULL || program == NULL) {
             printf("Erro: task incompleta.\n");
             return;
-    }
+        }
 
-    char *args[MAX_ARGS];
+        char *args[MAX_ARGS];
         int i = 0;
 
         args[i++] = program;
@@ -108,80 +106,103 @@ void process_command(char *line)
         return;
     }
 
+    if (strcmp(command, "run") == 0) {
 
+        char *mode = strtok(NULL, " \n");
 
-if (strcmp(command, "run") == 0) {
-
-    char *mode = strtok(NULL, " \n");
-
-    if (mode == NULL) {
-        printf("Erro: informe uma tarefa.\n");
-        return;
-    }
-
-    /* run sequential ... */
-    if (strcmp(mode, "sequential") == 0) {
-
-        char *task_names[MAX_TASKS];
-        int count = 0;
-
-        char *name = strtok(NULL, " \n");
-
-        while (name != NULL && count < MAX_TASKS) {
-            task_names[count] = name;
-            count++;
-
-            name = strtok(NULL, " \n");
-        }
-
-        if (count == 0) {
-            printf("Erro: nenhuma tarefa informada.\n");
+        if (mode == NULL) {
+            printf("Erro: informe uma tarefa.\n");
             return;
         }
 
-        run_sequential(task_names, count);
-        return;
-    }
+        /* run sequential ... */
+        if (strcmp(mode, "sequential") == 0) {
 
+            char *task_names[MAX_TASKS];
+            int count = 0;
 
-    /* run parallel ... */    // Cria e depois executa de uma vez
-    if (strcmp(mode, "parallel") == 0) {
+            char *name = strtok(NULL, " \n");
 
-        char *task_names[MAX_TASKS];
-        int count = 0;
+            while (name != NULL && count < MAX_TASKS) {
+                task_names[count] = name;
+                count++;
 
-        char *name = strtok(NULL, " \n");
+                name = strtok(NULL, " \n");
+            }
 
-        while (name != NULL && count < MAX_TASKS) {
-            task_names[count] = name;
-            count++;
+            if (count == 0) {
+                printf("Erro: nenhuma tarefa informada.\n");
+                return;
+            }
 
-            name = strtok(NULL, " \n");
-        }
-
-        if (count == 0) {
-            printf("Erro: nenhuma tarefa informada.\n");
+            run_sequential(task_names, count);
             return;
         }
 
-        run_parallel(task_names, count);
+        /* run parallel ... */
+        if (strcmp(mode, "parallel") == 0) {
+
+            char *task_names[MAX_TASKS];
+            int count = 0;
+
+            char *name = strtok(NULL, " \n");
+
+            while (name != NULL && count < MAX_TASKS) {
+                task_names[count] = name;
+                count++;
+
+                name = strtok(NULL, " \n");
+            }
+
+            if (count == 0) {
+                printf("Erro: nenhuma tarefa informada.\n");
+                return;
+            }
+
+            run_parallel(task_names, count);
+            return;
+        }
+
+        /* run pipe tarefa1 tarefa2 ... */
+        if (strcmp(mode, "pipe") == 0) {
+
+            char *task_names[MAX_TASKS];
+            int count = 0;
+
+            char *name = strtok(NULL, " \n");
+
+            while (name != NULL && count < MAX_TASKS) {
+                task_names[count] = name;
+                count++;
+
+                name = strtok(NULL, " \n");
+            }
+
+            if (count < 2) {
+                printf("Erro: informe pelo menos duas tarefas para o pipe.\n");
+                return;
+            }
+
+            run_pipe(task_names, count);
+            return;
+        }
+
+        
+        /* run tarefa individual */
+        Task *task = find_task(mode);
+
+        if (task == NULL) {
+            printf("Erro: tarefa nao encontrada.\n");
+            return;
+        }
+
+        execute_task(task);
         return;
     }
-
-
-
-    /* run tarefa */  // executa uma tarefa individual
-    Task *task = find_task(mode);
-
-    if (task == NULL) {
-        printf("Erro: tarefa nao encontrada.\n");
-        return;
-    }
-
-    execute_task(task);
-    return;
 }
-}
+
+
+
 
 
 Task *find_task(char *name)
@@ -258,4 +279,76 @@ void run_parallel(char *task_names[], int count)
     for (int i = 0; i < created; i++) {
         waitpid(pids[i], NULL, 0);
     }
+}
+
+
+
+void run_pipe(Task *first, Task *second)
+{
+    int fd[2];
+
+    if (pipe(fd) < 0) {
+        perror("Erro no pipe");
+        return;
+    }
+
+    pid_t pid1 = fork();
+
+    if (pid1 < 0) {
+        perror("Erro no fork");
+        return;
+    }
+
+    if (pid1 == 0) {
+        char *args1[MAX_ARGS + 1];
+
+        for (int i = 0; i < first->arg_count; i++) {
+            args1[i] = first->args[i];
+        }
+
+        args1[first->arg_count] = NULL;
+
+        dup2(fd[1], STDOUT_FILENO);
+
+        close(fd[0]);
+        close(fd[1]);
+
+        execv(first->program, args1);
+
+        perror("Erro no exec");
+        exit(1);
+    }
+
+    pid_t pid2 = fork();
+
+    if (pid2 < 0) {
+        perror("Erro no fork");
+        return;
+    }
+
+    if (pid2 == 0) {
+        char *args2[MAX_ARGS + 1];
+
+        for (int i = 0; i < second->arg_count; i++) {
+            args2[i] = second->args[i];
+        }
+
+        args2[second->arg_count] = NULL;
+
+        dup2(fd[0], STDIN_FILENO);
+
+        close(fd[0]);
+        close(fd[1]);
+
+        execv(second->program, args2);
+
+        perror("Erro no exec");
+        exit(1);
+    }
+
+    close(fd[0]);
+    close(fd[1]);
+
+    waitpid(pid1, NULL, 0);
+    waitpid(pid2, NULL, 0);
 }
