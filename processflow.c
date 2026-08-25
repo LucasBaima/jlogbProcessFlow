@@ -31,8 +31,14 @@ void register_task(char *name, char *program, char *args[])
 
     tasks[task_count].arg_count = i;
 
+    tasks[task_count].entrada_arquivo[0] = '\0';
+    tasks[task_count].saida_arquivo[0] = '\0';
+    tasks[task_count].append_mode = 0;
+
     task_count++;
 }
+
+
 
 int execute_task(Task *task)
 {
@@ -105,6 +111,77 @@ void process_command(char *line)
         register_task(name, program, args);
         return;
     }
+
+    //implementação dos comandos input, output e append
+// -----------------------------------------------------------------------------------------------------------
+
+if (strcmp(command, "input") == 0) {
+    char *task_name = strtok(NULL, " \n");
+    char *file_name = strtok(NULL, " \n");
+
+    if (task_name == NULL || file_name == NULL) {
+        printf("Erro: input incompleto.\n");
+        return;
+    }
+
+    Task *task = find_task(task_name);
+
+    if (task == NULL) {
+        printf("Erro: tarefa nao encontrada.\n");
+        return;
+    }
+
+    strcpy(task->entrada_arquivo, file_name);
+    return;
+}
+
+
+if (strcmp(command, "output") == 0) {
+    char *task_name = strtok(NULL, " \n");
+    char *file_name = strtok(NULL, " \n");
+
+    if (task_name == NULL || file_name == NULL) {
+        printf("Erro: output incompleto.\n");
+        return;
+    }
+
+    Task *task = find_task(task_name);
+
+    if (task == NULL) {
+        printf("Erro: tarefa nao encontrada.\n");
+        return;
+    }
+
+    strcpy(task->saida_arquivo, file_name);
+    task->append_mode = 0;
+
+    return;
+}
+
+
+if (strcmp(command, "append") == 0) {
+    char *task_name = strtok(NULL, " \n");
+    char *file_name = strtok(NULL, " \n");
+
+    if (task_name == NULL || file_name == NULL) {
+        printf("Erro: append incompleto.\n");
+        return;
+    }
+
+    Task *task = find_task(task_name);
+
+    if (task == NULL) {
+        printf("Erro: tarefa nao encontrada.\n");
+        return;
+    }
+
+    strcpy(task->saida_arquivo, file_name);
+    task->append_mode = 1;
+
+    return;
+}
+
+// -----------------------------------------------------------------------------------------
 
     if (strcmp(command, "run") == 0) {
 

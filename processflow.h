@@ -6,6 +6,7 @@
 #define MAX_PROGRAM 200
 #define MAX_ARGS 20
 #define MAX_ARG_LEN 100
+#define MAX_FILE 200 // 
 
 
 typedef struct {
@@ -13,6 +14,10 @@ typedef struct {
     char program[MAX_PROGRAM];
     char args[MAX_ARGS][MAX_ARG_LEN];  // guarda os argumentos dentro dela mesma
     int arg_count;
+
+    char entrada_arquivo[MAX_FILE]; // arquivo de entrada
+    char saida_arquivo[MAX_FILE]; // arquivo de saída
+    int append_mode; // 0 para sobrescrever, 1 para acrescentar
 } Task;
 
 extern Task tasks[MAX_TASKS];   //<-- extern declara uma variável global sem alocar ela ali; a definição real fica em um único .c.
