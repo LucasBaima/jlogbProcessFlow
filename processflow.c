@@ -5,10 +5,16 @@
 #include <string.h>
 #include "processflow.h"
 #include <stdlib.h>
+#include <fcntl.h> // for open() and O_* constants
 
 Task tasks[MAX_TASKS];
 int task_count = 0;   //initialize the task count to 0
 
+
+char current_workdir[MAX_WORKDIR] = "";
+
+Job jobs[MAX_JOBS];
+int job_count = 0;
 
 
 
@@ -40,7 +46,7 @@ void register_task(char *name, char *program, char *args[])
 
 
 
-int execute_task(Task *task)
+int execute_task(Task *task)  //pai usa waitpid
 {
     pid_t pid = fork();
 
@@ -50,6 +56,7 @@ int execute_task(Task *task)
     }
 
     if (pid == 0) {
+
         char *exec_args[MAX_ARGS + 1];
 
         for (int i = 0; i < task->arg_count; i++) {
@@ -58,11 +65,70 @@ int execute_task(Task *task)
 
         exec_args[task->arg_count] = NULL;
 
+
+        /* REDIRECIONAMENTO DE ENTRADA */
+        if (task->entrada_arquivo[0] != '\0') {
+
+            int fd_in = open(task->entrada_arquivo, O_RDONLY);
+
+            if (fd_in < 0) {
+                perror("Erro ao abrir arquivo de entrada");
+                exit(1);
+            }
+
+            dup2(fd_in, STDIN_FILENO);
+            close(fd_in);
+        }
+
+
+        /* REDIRECIONAMENTO DE SAIDA */
+        if (task->saida_arquivo[0] != '\0') {
+
+            int fd_out;
+
+            if (task->append_mode == 1) {
+
+                fd_out = open(
+                    task->saida_arquivo,
+                    O_WRONLY | O_CREAT | O_APPEND,
+                    0644
+                );
+
+            } else {
+
+                fd_out = open(
+                    task->saida_arquivo,
+                    O_WRONLY | O_CREAT | O_TRUNC,
+                    0644
+                );
+            }
+
+            if (fd_out < 0) {
+                perror("Erro ao abrir arquivo de saida");
+                exit(1);
+            }
+
+            dup2(fd_out, STDOUT_FILENO);
+            close(fd_out);
+        }
+
+
+        /* DIRETORIO DE TRABALHO */
+        if (current_workdir[0] != '\0') {
+
+            if (chdir(current_workdir) != 0) {
+                perror("Erro ao mudar diretorio");
+                exit(1);
+            }
+        }
+
+
         execv(task->program, exec_args);
 
         perror("Erro no exec");
         exit(1);
     }
+
 
     int status;
     waitpid(pid, &status, 0);
@@ -181,6 +247,47 @@ if (strcmp(command, "append") == 0) {
     return;
 }
 
+if (strcmp(command, "workdir") == 0) {
+    char *dir = strtok(NULL, " \n");
+
+    if (dir == NULL) {
+        printf("Erro: informe um diretorio.\n");
+        return;
+    }
+
+    if (access(dir, F_OK) != 0) {
+        printf("Erro: diretorio nao encontrado.\n");
+        return;
+    }
+
+    strcpy(current_workdir, dir);
+    return;
+}
+
+if (strcmp(command, "start") == 0) {
+    char *task_name = strtok(NULL, " \n");
+
+    if (task_name == NULL) {
+        printf("Erro: informe uma tarefa.\n");
+        return;
+    }
+
+    Task *task = find_task(task_name);
+
+    if (task == NULL) {
+        printf("Erro: tarefa nao encontrada.\n");
+        return;
+    }
+
+    start_task(task);
+    return;
+}
+
+
+if (strcmp(command, "jobs") == 0) {
+    list_jobs();
+    return;
+}
 // -----------------------------------------------------------------------------------------
 
     if (strcmp(command, "run") == 0) {
@@ -428,4 +535,91 @@ void run_pipe(Task *first, Task *second)
 
     waitpid(pid1, NULL, 0);
     waitpid(pid2, NULL, 0);
+}
+
+
+
+int start_task(Task *task)  // O pai salva o PID do filho -- processo está em jobs[] para acompanhamento
+{
+    pid_t pid = fork(); // fork cria um novo processo, que é uma cópia do processo atual. O novo processo é chamado de processo filho,
+    // e o processo original é chamado de processo pai. A função fork retorna o PID (Process ID) do processo
+    // filho para o processo pai, e retorna 0 para o processo filho.    <---- LEMBRAR
+
+    if (pid < 0) {
+        perror("Erro no fork");
+        return 1;
+    }
+
+    if (pid == 0) {
+
+        char *exec_args[MAX_ARGS + 1];
+
+        for (int i = 0; i < task->arg_count; i++) {
+            exec_args[i] = task->args[i];
+        }
+
+        exec_args[task->arg_count] = NULL;
+
+        if (current_workdir[0] != '\0') {
+            if (chdir(current_workdir) != 0) {
+                perror("Erro ao mudar diretorio");
+                exit(1);
+            }
+        }
+
+        execv(task->program, exec_args);
+
+        perror("Erro no exec");
+        exit(1);
+    }
+
+    // PAI NÃO ESPERA */     <-- LEMBRAR
+
+    if (job_count >= MAX_JOBS) {
+        printf("Erro: limite de jobs atingido.\n");
+        return 1;
+    }
+
+    jobs[job_count].id = job_count + 1;
+    jobs[job_count].pid = pid;
+    jobs[job_count].active = 1;
+
+    printf("[%d] %d\n",
+           jobs[job_count].id,
+           jobs[job_count].pid);
+
+    job_count++;
+
+    return 0;
+}
+
+
+
+void list_jobs(void)
+{
+    for (int i = 0; i < job_count; i++) {
+
+        if (jobs[i].active == 1) {
+
+            int status;
+
+            pid_t result = waitpid( 
+                jobs[i].pid,
+                &status,
+                WNOHANG // Verifica se o processo terminou sem bloquear a execução do programa. 
+            );
+
+            if (result == 0) {
+                /* processo ainda esta rodando */
+                printf("[%d] %d\n",
+                       jobs[i].id,
+                       jobs[i].pid);
+            }
+
+            else if (result == jobs[i].pid) {
+                /* processo ja terminou */
+                jobs[i].active = 0;
+            }
+        }
+    }
 }

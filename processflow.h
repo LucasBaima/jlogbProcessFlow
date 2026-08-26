@@ -8,6 +8,9 @@
 #define MAX_ARG_LEN 100
 #define MAX_FILE 200 // 
 
+#define MAX_WORKDIR 300 // tamanho máximo do caminho do diretório de trabalho
+#define MAX_JOBS 100 // tamanho máximo do caminho do diretório de trabalho
+
 
 typedef struct {
     char name[MAX_NAME];
@@ -20,12 +23,31 @@ typedef struct {
     int append_mode; // 0 para sobrescrever, 1 para acrescentar
 } Task;
 
+typedef struct {
+    int id;
+    pid_t pid;
+    int active;
+} Job;
+
+
+
+
 extern Task tasks[MAX_TASKS];   //<-- extern declara uma variável global sem alocar ela ali; a definição real fica em um único .c.
 extern int task_count;
+extern char current_workdir[MAX_WORKDIR]; // variável global para armazenar o diretório de trabalho atual
+
+extern Job jobs[MAX_JOBS]; // variável global para armazenar as tarefas em execução
+extern int job_count;
+
+extern char current_workdir[MAX_WORKDIR];
 
 void register_task(char *name, char *program, char *args[]);
 
 int execute_task(Task *task);
+
+int start_task(Task *task);
+
+void list_jobs(void);
 
 void process_command(char *line);
 
@@ -37,4 +59,13 @@ void run_parallel(char *task_names[], int count);
 
 void run_pipe(char *task_names[], int count); // várias tarefas possíveis em pipe
 
+
+
 #endif
+
+
+//Recapitulando -> Background executar sem bloquear o ProcessFlow; O processo continua rodando enquanto o
+//usuário tem a possibilidade de digitar novos comandos!
+
+//PID → identificador dado pelo Sistema Operacional ao processo.
+//Job ID → número que o nosso próprio ProcessFlow cria para organizar os processos em background.

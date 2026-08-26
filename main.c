@@ -27,7 +27,21 @@ int main(int argc, char *argv[])
     }
 
     if (argc == 2) {
-        printf("Modo workflow ainda sera implementado: %s\n", argv[1]);
+         FILE *workflow = fopen(argv[1], "r");
+
+    if (workflow == NULL) {
+        perror("Erro ao abrir workflow");
+        return 1;
+    }
+
+    while (fgets(line, sizeof(line), workflow) != NULL) { // ler cada linha do arquivo de workflow
+
+        printf("%s", line);
+
+        process_command(line);
+    }
+
+    fclose(workflow);
     }
 
     return 0;
