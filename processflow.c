@@ -467,12 +467,7 @@ void run_parallel(char *task_names[], int count)
 
     exec_args[task->arg_count] = NULL;
 
-    fprintf(stderr, "DEBUG task: %s\n", task->name);
-    fprintf(stderr, "DEBUG programa: [%s]\n", task->program);
-
-    for (int j = 0; j < task->arg_count; j++) {
-        fprintf(stderr, "DEBUG arg[%d]: [%s]\n", j, task->args[j]);
-    }
+    
 
     execv(task->program, exec_args);
 
