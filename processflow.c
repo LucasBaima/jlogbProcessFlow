@@ -459,19 +459,26 @@ void run_parallel(char *task_names[], int count)
         }
 
         if (pid == 0) {
-            char *exec_args[MAX_ARGS + 1];
+    char *exec_args[MAX_ARGS + 1];
 
-            for (int j = 0; j < task->arg_count; j++) {
-                exec_args[j] = task->args[j];
-            }
+    for (int j = 0; j < task->arg_count; j++) {
+        exec_args[j] = task->args[j];
+    }
 
-            exec_args[task->arg_count] = NULL;
+    exec_args[task->arg_count] = NULL;
 
-            execv(task->program, exec_args);
+    fprintf(stderr, "DEBUG task: %s\n", task->name);
+    fprintf(stderr, "DEBUG programa: [%s]\n", task->program);
 
-            perror("Erro no exec");
-            exit(1);
-        }
+    for (int j = 0; j < task->arg_count; j++) {
+        fprintf(stderr, "DEBUG arg[%d]: [%s]\n", j, task->args[j]);
+    }
+
+    execv(task->program, exec_args);
+
+    perror("Erro no exec");
+    exit(1);
+}
 
         pids[created] = pid;
         created++;
