@@ -59,7 +59,8 @@ void run_sequential(char *task_names[], int count);
 
 void run_parallel(char *task_names[], int count);
 
-void run_pipe(char *task_names[], int count); // várias tarefas possíveis em pipe
+void run_pipe(char *task_names[], int count) // função para executar tarefas em paralelo com pipe
+
 
 
 

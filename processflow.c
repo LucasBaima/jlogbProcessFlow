@@ -484,74 +484,103 @@ void run_parallel(char *task_names[], int count)
 
 
 
-void run_pipe(Task *first, Task *second)
+void run_pipe(char *task_names[], int count)
 {
-    int fd[2];
+    Task *pipe_tasks[MAX_TASKS];
+    pid_t pids[MAX_TASKS];
+    int pipes[MAX_TASKS - 1][2];
 
-    if (pipe(fd) < 0) {
-        perror("Erro no pipe");
-        return;
+    /* Primeiro procura todas as tarefas */
+    for (int i = 0; i < count; i++) {
+        pipe_tasks[i] = find_task(task_names[i]);
+
+        if (pipe_tasks[i] == NULL) {
+            printf("Erro: tarefa nao encontrada.\n");
+            return;
+        }
     }
 
-    pid_t pid1 = fork();
-
-    if (pid1 < 0) {
-        perror("Erro no fork");
-        return;
+    /* Cria os pipes necessários */
+    for (int i = 0; i < count - 1; i++) {
+        if (pipe(pipes[i]) < 0) {
+            perror("Erro no pipe");
+            return;
+        }
     }
 
-    if (pid1 == 0) {
-        char *args1[MAX_ARGS + 1];
+    /* Cria um processo para cada tarefa */
+    for (int i = 0; i < count; i++) {
 
-        for (int i = 0; i < first->arg_count; i++) {
-            args1[i] = first->args[i];
+        pid_t pid = fork();
+
+        if (pid < 0) {
+            perror("Erro no fork");
+            return;
         }
 
-        args1[first->arg_count] = NULL;
+        if (pid == 0) {
 
-        dup2(fd[1], STDOUT_FILENO);
+            Task *task = pipe_tasks[i];
 
-        close(fd[0]);
-        close(fd[1]);
+            char *exec_args[MAX_ARGS + 1];
 
-        execv(first->program, args1);
+            for (int j = 0; j < task->arg_count; j++) {
+                exec_args[j] = task->args[j];
+            }
 
-        perror("Erro no exec");
-        exit(1);
-    }
+            exec_args[task->arg_count] = NULL;
 
-    pid_t pid2 = fork();
 
-    if (pid2 < 0) {
-        perror("Erro no fork");
-        return;
-    }
+            /* Se não for a primeira tarefa,
+               receber entrada do pipe anterior */
+            if (i > 0) {
+                dup2(pipes[i - 1][0], STDIN_FILENO);
+            }
 
-    if (pid2 == 0) {
-        char *args2[MAX_ARGS + 1];
+            // Se não for a última tarefa,
+            //   enviar saída para o3 próximo pipe //
+            if (i < count - 1) {
+                dup2(pipes[i][1], STDOUT_FILENO);
+            }
 
-        for (int i = 0; i < second->arg_count; i++) {
-            args2[i] = second->args[i];
+
+            /* Fecha todos os descritores de pipe */
+            for (int j = 0; j < count - 1; j++) {
+                close(pipes[j][0]);
+                close(pipes[j][1]);
+            }
+
+
+            /* WORKDIR */
+            if (current_workdir[0] != '\0') {
+                if (chdir(current_workdir) != 0) {
+                    perror("Erro ao mudar diretorio");
+                    exit(1);
+                }
+            }
+
+
+            execv(task->program, exec_args);
+
+            perror("Erro no exec");
+            exit(1);
         }
 
-        args2[second->arg_count] = NULL;
-
-        dup2(fd[0], STDIN_FILENO);
-
-        close(fd[0]);
-        close(fd[1]);
-
-        execv(second->program, args2);
-
-        perror("Erro no exec");
-        exit(1);
+        pids[i] = pid;
     }
 
-    close(fd[0]);
-    close(fd[1]);
 
-    waitpid(pid1, NULL, 0);
-    waitpid(pid2, NULL, 0);
+    // Pai não tá usando nenhum dos pipes */
+    for (int i = 0; i < count - 1; i++) {
+        close(pipes[i][0]);
+        close(pipes[i][1]);
+    }
+
+
+    /* Agora espera todos os processos */
+    for (int i = 0; i < count; i++) {
+        waitpid(pids[i], NULL, 0);
+    }
 }
 
 
