@@ -1,6 +1,7 @@
 #ifndef PROCESSFLOW_H
 #define PROCESSFLOW_H
 
+#include <sys/types.h>
 #define MAX_TASKS 100
 #define MAX_NAME 50
 #define MAX_PROGRAM 200
@@ -59,7 +60,7 @@ void run_sequential(char *task_names[], int count);
 
 void run_parallel(char *task_names[], int count);
 
-void run_pipe(char *task_names[], int count) // função para executar tarefas em paralelo com pipe
+void run_pipe(char *task_names[], int count); // função para executar tarefas em paralelo com pipe
 
 
 
