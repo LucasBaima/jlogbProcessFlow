@@ -288,6 +288,23 @@ if (strcmp(command, "jobs") == 0) {
     list_jobs();
     return;
 }
+
+
+if (strcmp(command, "wait") == 0) {
+
+    char *job_id_text = strtok(NULL, " \n");
+
+    if (job_id_text == NULL) {
+        printf("Erro: informe o job.\n");
+        return;
+    }
+
+    int job_id = atoi(job_id_text);
+
+    wait_job(job_id);
+
+    return;
+}
 // -----------------------------------------------------------------------------------------
 
     if (strcmp(command, "run") == 0) {
@@ -539,11 +556,9 @@ void run_pipe(Task *first, Task *second)
 
 
 
-int start_task(Task *task)  // O pai salva o PID do filho -- processo está em jobs[] para acompanhamento
+int start_task(Task *task)
 {
-    pid_t pid = fork(); // fork cria um novo processo, que é uma cópia do processo atual. O novo processo é chamado de processo filho,
-    // e o processo original é chamado de processo pai. A função fork retorna o PID (Process ID) do processo
-    // filho para o processo pai, e retorna 0 para o processo filho.    <---- LEMBRAR
+    pid_t pid = fork();
 
     if (pid < 0) {
         perror("Erro no fork");
@@ -560,12 +575,61 @@ int start_task(Task *task)  // O pai salva o PID do filho -- processo está em j
 
         exec_args[task->arg_count] = NULL;
 
+
+        /* REDIRECIONAMENTO DE ENTRADA */
+        if (task->entrada_arquivo[0] != '\0') {
+
+            int fd_in = open(task->entrada_arquivo, O_RDONLY);
+
+            if (fd_in < 0) {
+                perror("Erro ao abrir arquivo de entrada");
+                exit(1);
+            }
+
+            dup2(fd_in, STDIN_FILENO);
+            close(fd_in);
+        }
+
+
+        /* REDIRECIONAMENTO DE SAIDA */  //<-- aqui é onde o redirecionamento de saída é feito, verificando se o arquivo de saída foi especificado e se deve ser sobrescrito ou acrescentado.
+        if (task->saida_arquivo[0] != '\0') {
+
+            int fd_out;
+
+            if (task->append_mode == 1) {
+                fd_out = open(
+                    task->saida_arquivo,
+                    O_WRONLY | O_CREAT | O_APPEND,
+                    0644
+                );
+            }
+            else {
+                fd_out = open(
+                    task->saida_arquivo,
+                    O_WRONLY | O_CREAT | O_TRUNC,
+                    0644
+                );
+            }
+
+            if (fd_out < 0) {
+                perror("Erro ao abrir arquivo de saida");
+                exit(1);
+            }
+
+            dup2(fd_out, STDOUT_FILENO);
+            close(fd_out);
+        }
+
+
+        /* WORKDIR */
         if (current_workdir[0] != '\0') {
+
             if (chdir(current_workdir) != 0) {
                 perror("Erro ao mudar diretorio");
                 exit(1);
             }
         }
+
 
         execv(task->program, exec_args);
 
@@ -573,7 +637,8 @@ int start_task(Task *task)  // O pai salva o PID do filho -- processo está em j
         exit(1);
     }
 
-    // PAI NÃO ESPERA */     <-- LEMBRAR
+
+    // PAI NAO ESPERA */
 
     if (job_count >= MAX_JOBS) {
         printf("Erro: limite de jobs atingido.\n");
@@ -592,6 +657,8 @@ int start_task(Task *task)  // O pai salva o PID do filho -- processo está em j
 
     return 0;
 }
+
+
 
 
 
@@ -622,4 +689,27 @@ void list_jobs(void)
             }
         }
     }
+}
+
+
+void wait_job(int job_id)
+{
+    for (int i = 0; i < job_count; i++) {
+
+        if (jobs[i].id == job_id) {
+
+            if (jobs[i].active == 0) {
+                printf("Erro: job ja finalizado.\n");
+                return;
+            }
+
+            waitpid(jobs[i].pid, NULL, 0);
+
+            jobs[i].active = 0;
+
+            return;
+        }
+    }
+
+    printf("Erro: job nao encontrado.\n");
 }

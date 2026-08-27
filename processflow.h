@@ -49,6 +49,8 @@ int start_task(Task *task);
 
 void list_jobs(void);
 
+void wait_job(int job_id);
+
 void process_command(char *line);
 
 Task *find_task(char *name);
